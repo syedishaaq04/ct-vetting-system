@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+
 :root {
   color-scheme: light;
 }
@@ -5,14 +7,14 @@
 html {
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 32%),
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 28%),
-    linear-gradient(180deg, #eef4ff 0%, #f8fbff 38%, #f3f6fb 100%);
+    radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.2), transparent 38%),
+    radial-gradient(circle at 84% 12%, rgba(14, 165, 233, 0.2), transparent 34%),
+    linear-gradient(180deg, #f4fbf9 0%, #f5f9ff 42%, #f8fbff 100%);
 }
 
 body {
   margin: 0;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: transparent;
@@ -33,6 +35,12 @@ input {
   font: inherit;
 }
 
+h1,
+h2,
+h3 {
+  font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif;
+}
+
 ::selection {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(45, 212, 191, 0.28);
 }

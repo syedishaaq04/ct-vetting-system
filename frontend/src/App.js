@@ -8,22 +8,28 @@ function App() {
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
 
+  const apiBase = 'http://localhost:8000';
+
   // Sample clinical inputs for testing
   const sampleInputs = [
     {
       name: "Acute Trauma",
+      hint: "High-risk mechanism with instability",
       text: "45 year old male involved in high-speed MVC, complaints of abdominal pain and tenderness, haemodynamically unstable, emergency CT requested."
     },
     {
       name: "Vague Pain",
+      hint: "Low-specificity abdominal symptoms",
       text: "35 year old female with 2 days of diffuse abdominal pain, no fever, no vomiting, no prior imaging done, no peritoneal signs on examination."
     },
     {
       name: "Acute Abdomen",
+      hint: "Peritoneal signs and high fever",
       text: "60 year old male with 4 days of worsening abdominal pain, guarding and rigidity on examination, high fever, peritoneal signs present."
     },
     {
       name: "Urological",
+      hint: "Flank pain with hematuria",
       text: "40 year old male with right flank pain and hematuria for 1 day, no prior imaging, urgent evaluation requested."
     }
   ];
@@ -41,7 +47,7 @@ function App() {
     setResults(null);
 
     try {
-      const response = await axios.post('http://localhost:8000/vet', {
+      const response = await axios.post(`${apiBase}/vet`, {
         clinical_text: clinicalText
       });
 
@@ -71,18 +77,14 @@ function App() {
 
   const getVerdictClass = (verdict) => {
     switch (verdict) {
-      case 'APPROVE': return 'approve';
-      case 'FLAG FOR REVIEW': return 'flag';
-      case 'SOFT REJECT': return 'reject';
-      default: return '';
+      case 'APPROVE': return 'tone-approve';
+      case 'FLAG FOR REVIEW': return 'tone-flag';
+      case 'SOFT REJECT': return 'tone-reject';
+      default: return 'tone-default';
     }
   };
 
-  const getScoreClass = (score) => {
-    if (score >= 7) return 'high';
-    if (score >= 4) return 'medium';
-    return 'low';
-  };
+  const asArray = (value) => (Array.isArray(value) ? value : []);
 
   const formatConfidence = (value) => {
     if (value === null || value === undefined || value === '') {
@@ -102,63 +104,122 @@ function App() {
   const extractedEntities = results ? results.nlp_processing.extracted_entities : null;
   const scoringAnalysis = results ? results.scoring.score_analysis : null;
   const justification = results ? results.justification.llm_output : null;
-  const hasText = clinicalText.trim().length > 0;
+  const processingMeta = results ? results.processing_metadata : null;
+
+  const symptoms = asArray(extractedEntities?.symptoms);
+  const redFlags = asArray(extractedEntities?.red_flags);
+  const urgencySignals = asArray(extractedEntities?.urgency_signals);
+  const appliedModifiers = asArray(scoringAnalysis?.applied_modifiers);
+  const redFlagsToWatch = asArray(justification?.red_flags_to_watch);
+
+  const textLength = clinicalText.trim().length;
+  const hasText = textLength > 0;
   const hasResults = Boolean(results && finalDecision && extractedEntities && scoringAnalysis && justification);
+  const textReadiness = Math.max(0, Math.min(100, Math.round((textLength / 220) * 100)));
+  const scoreValue = Number(finalDecision?.score ?? 0);
+  const scorePercent = Math.max(0, Math.min(100, Math.round(scoreValue * 10)));
 
   return (
     <div className="App">
-      <div className="app-shell">
-        <header className="hero">
-          <div className="hero-copy">
-            <span className="eyebrow">AI-assisted radiology workflow</span>
-            <h1>CT Scan Vetting System</h1>
+      <div className="ambient ambient-a"></div>
+      <div className="ambient ambient-b"></div>
+
+      <div className="layout-shell">
+        <header className="top-banner">
+          <div className="banner-title-group">
+            <span className="eyebrow">Clinical command center</span>
+            <h1>CT Vetting Studio</h1>
             <p>
-              A polished clinical triage interface for reviewing CT requests with
-              fast NLP extraction, rule-based scoring, and AI justification.
+              A complete triage workspace for radiology request screening with
+              entity extraction, clinical scoring, and AI-generated rationale.
             </p>
-            <div className="hero-pills" aria-label="Product highlights">
-              <span>NLP extraction</span>
-              <span>Rule-based scoring</span>
-              <span>LLM justification</span>
-            </div>
           </div>
 
-          <div className="hero-panel">
-            <div className={`hero-status ${hasResults ? 'is-ready' : hasText ? 'is-primed' : 'is-idle'}`}>
-              <span className="status-dot"></span>
-              <span>{hasResults ? 'Analysis complete' : hasText ? 'Request prepared' : 'Waiting for input'}</span>
-            </div>
-            <div className="hero-metric">
-              <span className="metric-label">Status</span>
-              <span className="metric-value">Live demo</span>
-            </div>
-            <div className="hero-metric">
-              <span className="metric-label">Pipeline</span>
-              <span className="metric-value">NLP + Scoring + LLM</span>
-            </div>
-            <div className="hero-metric">
-              <span className="metric-label">Audience</span>
-              <span className="metric-value">Radiology triage</span>
-            </div>
+          <div className="banner-chip-row" aria-label="Platform capabilities">
+            <span className="capability-chip">Biomedical NLP</span>
+            <span className="capability-chip">ACR-aligned scoring</span>
+            <span className="capability-chip">Structured justification</span>
           </div>
         </header>
 
-        <main className="dashboard-grid">
-          <section className="panel panel-primary">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Clinical input</span>
-                <h2>Enter request details</h2>
+        <section className="hero-grid">
+          <article className="hero-card">
+            <div className="hero-card-head">
+              <span className="panel-kicker">Live status</span>
+              <div className={`status-pill ${hasResults ? 'is-ready' : hasText ? 'is-primed' : 'is-idle'}`}>
+                <span className="status-dot"></span>
+                <span>{hasResults ? 'Analysis complete' : hasText ? 'Request drafted' : 'Awaiting request text'}</span>
               </div>
-              <button type="button" className="ghost-button" onClick={handleClear} disabled={loading && !clinicalText}>
-                Reset
+            </div>
+
+            <div className="hero-metrics">
+              <div className="metric-card">
+                <span className="metric-label">API endpoint</span>
+                <strong className="metric-value">{apiBase}</strong>
+              </div>
+              <div className="metric-card">
+                <span className="metric-label">Pipeline stages</span>
+                <strong className="metric-value">NLP · Score · LLM</strong>
+              </div>
+              <div className="metric-card">
+                <span className="metric-label">Input readiness</span>
+                <strong className="metric-value">{textReadiness}%</strong>
+              </div>
+            </div>
+
+            <div className="readiness-meter" style={{ '--fill': `${textReadiness}%` }}>
+              <span>Text readiness</span>
+              <div className="readiness-track">
+                <div className="readiness-bar"></div>
+              </div>
+            </div>
+          </article>
+
+          <aside className="guide-card">
+            <span className="panel-kicker">How it works</span>
+            <h2>Clinical reasoning flow</h2>
+            <div className="flow-list">
+              <div className="flow-item">
+                <span className="flow-index">01</span>
+                <div>
+                  <h3>Extract entities</h3>
+                  <p>Captures age, sex, symptoms, urgency signals, and red flags from free text.</p>
+                </div>
+              </div>
+              <div className="flow-item">
+                <span className="flow-index">02</span>
+                <div>
+                  <h3>Score necessity</h3>
+                  <p>Applies category-specific base scores plus evidence-based modifiers.</p>
+                </div>
+              </div>
+              <div className="flow-item">
+                <span className="flow-index">03</span>
+                <div>
+                  <h3>Produce rationale</h3>
+                  <p>Generates concise justification and safety-oriented red flags to watch.</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <main className="workspace-grid">
+          <section className="panel panel-main">
+            <div className="panel-heading">
+              <div>
+                <span className="panel-kicker">Request composer</span>
+                <h2>Clinical indication input</h2>
+              </div>
+              <button type="button" className="ghost-button" onClick={handleClear} disabled={loading && !hasText}>
+                Reset form
               </button>
             </div>
 
-            <div className="sample-inputs">
-              <div className="section-title-row">
-                <h3>Quick sample inputs</h3>
-                <span>One-click clinical scenarios</span>
+            <div className="sample-library">
+              <div className="section-headline">
+                <h3>Scenario templates</h3>
+                <span>Prefill realistic cases for demos and validation.</span>
               </div>
               <div className="sample-grid">
                 {sampleInputs.map((sample, index) => (
@@ -169,35 +230,36 @@ function App() {
                     onClick={() => loadSample(sample.text)}
                   >
                     <strong>{sample.name}</strong>
-                    <span>Load example text</span>
+                    <span>{sample.hint}</span>
                   </button>
                 ))}
               </div>
             </div>
 
-            <form className="vetting-form" onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label htmlFor="clinical-text">Clinical indication</label>
-                <textarea
-                  id="clinical-text"
-                  value={clinicalText}
-                  onChange={(e) => setClinicalText(e.target.value)}
-                  placeholder="Enter the clinical indication for CT scan..."
-                  disabled={loading}
-                  spellCheck="false"
-                />
-                <div className="char-count">{clinicalText.length} characters</div>
+            <form className="composer-form" onSubmit={handleSubmit}>
+              <label htmlFor="clinical-text" className="input-label">Clinical indication text</label>
+              <textarea
+                id="clinical-text"
+                value={clinicalText}
+                onChange={(e) => setClinicalText(e.target.value)}
+                placeholder="Enter detailed clinical context, symptoms, duration, red flags, and urgency indicators..."
+                disabled={loading}
+                spellCheck="false"
+              />
+              <div className="field-meta-row">
+                <span>{textLength} characters</span>
+                <span>Minimum recommended: 30+</span>
               </div>
 
-              {error && <div className="error">{error}</div>}
+              {error && <div className="error-banner">{error}</div>}
 
-              <div className="button-row">
+              <div className="action-row">
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={loading || !clinicalText.trim()}
+                  disabled={loading || !hasText}
                 >
-                  {loading ? 'Analyzing...' : 'Analyze request'}
+                  {loading ? 'Analyzing request...' : 'Run vetting analysis'}
                 </button>
                 <button
                   type="button"
@@ -205,223 +267,179 @@ function App() {
                   onClick={handleClear}
                   disabled={loading}
                 >
-                  Clear text
+                  Clear
                 </button>
               </div>
             </form>
 
             {loading && (
-              <div className="loading loading-card">
+              <div className="loading-panel">
                 <div className="spinner"></div>
                 <div>
-                  <strong>Analyzing request</strong>
-                  <span>Clinical signal extraction and scoring in progress</span>
+                  <strong>Pipeline running</strong>
+                  <span>Entity extraction, scoring, and justification are in progress.</span>
                 </div>
+              </div>
+            )}
+
+            {!hasResults && !loading && (
+              <div className="empty-state">
+                <h3>Ready for analysis</h3>
+                <p>
+                  Submit a clinical request to generate a triage verdict,
+                  confidence snapshot, and evidence-backed AI reasoning.
+                </p>
               </div>
             )}
           </section>
 
           <aside className="panel panel-side">
-            <div className="panel-header">
+            <div className="panel-heading">
               <div>
-                <span className="panel-kicker">At a glance</span>
-                <h2>Clinical workflow</h2>
+                <span className="panel-kicker">Operator panel</span>
+                <h2>Session context</h2>
               </div>
             </div>
 
-            <div className="workflow-card">
-              <div className="workflow-step">
-                <span className="step-index">1</span>
-                <div>
-                  <h3>Extract entities</h3>
-                  <p>Age, symptoms, urgency, and red flags from free text.</p>
-                </div>
+            <div className="context-list">
+              <div className="context-item">
+                <span>Backend</span>
+                <strong>localhost:8000</strong>
               </div>
-              <div className="workflow-step">
-                <span className="step-index">2</span>
-                <div>
-                  <h3>Apply score</h3>
-                  <p>Rule-based necessity scoring aligned to clinical category.</p>
-                </div>
+              <div className="context-item">
+                <span>Frontend</span>
+                <strong>localhost:3000</strong>
               </div>
-              <div className="workflow-step">
-                <span className="step-index">3</span>
-                <div>
-                  <h3>Generate justification</h3>
-                  <p>Provide concise reasoning and alternative imaging if needed.</p>
-                </div>
+              <div className="context-item">
+                <span>Readiness score</span>
+                <strong>{textReadiness}%</strong>
+              </div>
+              <div className="context-item">
+                <span>Current phase</span>
+                <strong>{loading ? 'Running analysis' : hasResults ? 'Result ready' : 'Awaiting submission'}</strong>
               </div>
             </div>
 
-            <div className="info-card">
-              <span className="info-card-label">Design intent</span>
+            <div className="note-block">
+              <span className="panel-kicker">Clinical safety note</span>
               <p>
-                Clean hierarchy, high contrast, and subtle gradients keep the
-                interface readable in a clinical demo setting.
+                This tool supports prioritization decisions. Final clinical judgment
+                remains with qualified radiology and emergency teams.
               </p>
-              <div className="info-note">
-                Built for quick review, calm reading, and a strong presentation on stage.
-              </div>
             </div>
           </aside>
         </main>
 
         {hasResults && (
-          <section className="results">
-            <div className={`results-header ${getVerdictClass(finalDecision.verdict)}`}>
-              <div className="results-header-top">
-                <div>
-                  <span className="panel-kicker">Decision summary</span>
-                  <h2>Vetting results</h2>
-                </div>
-                <div className={`verdict-badge ${getVerdictClass(finalDecision.verdict)}`}>
-                  {finalDecision.verdict}
-                </div>
+          <section className={`result-board ${getVerdictClass(finalDecision.verdict)}`}>
+            <div className="result-hero">
+              <div className="result-headline">
+                <span className="panel-kicker">Vetting outcome</span>
+                <h2>{finalDecision.verdict}</h2>
+                <p>
+                  Category: <strong>{finalDecision.category}</strong>
+                </p>
               </div>
 
-              <div className="results-ribbon">
-                <div className="results-ribbon-item">
-                  <span>Score band</span>
-                  <strong>{finalDecision.score >= 7 ? 'Appropriate' : finalDecision.score >= 4 ? 'Review' : 'Low priority'}</strong>
-                </div>
-                <div className="results-ribbon-item">
-                  <span>Confidence</span>
-                  <strong>{formatConfidence(confidenceValue)}</strong>
-                </div>
-                <div className="results-ribbon-item">
-                  <span>Pipeline</span>
-                  <strong>Complete</strong>
-                </div>
-              </div>
-
-              <div className="decision-surface">
-                <div className="decision-score">
+              <div className="score-ring" style={{ '--score-fill': `${scorePercent}%` }}>
+                <div className="score-core">
                   <span>Score</span>
-                  <strong>{finalDecision.score}/10</strong>
-                </div>
-                <div className="decision-meta">
-                  <div>
-                    <span>Category</span>
-                    <strong>{finalDecision.category}</strong>
-                  </div>
-                  <div>
-                    <span>Requires review</span>
-                    <strong>{finalDecision.requires_review ? 'Yes' : 'No'}</strong>
-                  </div>
-                  <div>
-                    <span>Category confidence</span>
-                    <strong>{formatConfidence(confidenceValue)}</strong>
-                  </div>
+                  <strong>{scoreValue}/10</strong>
                 </div>
               </div>
             </div>
 
-            <div className="results-content">
-              <div className="result-section">
-                <h3>Final decision</h3>
-                <div className="result-grid result-grid-compact">
-                  <div className="result-item emphasis">
-                    <strong>Verdict</strong>
-                    <span className={`verdict-badge ${getVerdictClass(finalDecision.verdict)}`}>
-                      {finalDecision.verdict}
-                    </span>
-                  </div>
-                  <div className="result-item emphasis">
-                    <strong>Score</strong>
-                    <div className={`score-display ${getScoreClass(finalDecision.score)}`}>
-                      {finalDecision.score}/10
-                    </div>
-                  </div>
-                  <div className="result-item">
-                    <strong>Category</strong>
-                    {finalDecision.category}
-                  </div>
-                  <div className="result-item">
-                    <strong>Requires review</strong>
-                    {finalDecision.requires_review ? 'Yes' : 'No'}
-                  </div>
+            <div className="snapshot-grid">
+              <div className="snapshot-card">
+                <span>Category confidence</span>
+                <strong>{formatConfidence(confidenceValue)}</strong>
+              </div>
+              <div className="snapshot-card">
+                <span>Requires review</span>
+                <strong>{finalDecision.requires_review ? 'Yes' : 'No'}</strong>
+              </div>
+              <div className="snapshot-card">
+                <span>Processing stages</span>
+                <strong>{asArray(processingMeta?.pipeline_stages).join(' -> ') || 'NLP -> Scoring -> LLM'}</strong>
+              </div>
+            </div>
+
+            <div className="result-columns">
+              <article className="glass-card">
+                <h3>Extracted entities</h3>
+                <div className="detail-grid">
+                  <div><span>Age</span><strong>{extractedEntities.age || 'Not detected'}</strong></div>
+                  <div><span>Sex</span><strong>{extractedEntities.sex || 'Not detected'}</strong></div>
+                  <div><span>Duration</span><strong>{extractedEntities.duration || 'Not detected'}</strong></div>
+                  <div><span>Prior imaging</span><strong>{extractedEntities.prior_imaging ? 'Yes' : 'No'}</strong></div>
+                </div>
+
+                <div className="chip-group-block">
+                  <span>Symptoms</span>
+                  <ul className="chip-list">
+                    {(symptoms.length > 0 ? symptoms : ['No symptoms extracted']).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="chip-group-block">
+                  <span>Urgency signals</span>
+                  <ul className="chip-list chip-list-neutral">
+                    {(urgencySignals.length > 0 ? urgencySignals : ['None detected']).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="chip-group-block">
+                  <span>Red flags</span>
+                  <ul className="chip-list chip-list-danger">
+                    {(redFlags.length > 0 ? redFlags : ['No red flags detected']).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+
+              <article className="glass-card">
+                <h3>Scoring and recommendation</h3>
+                <div className="detail-grid detail-grid-compact">
+                  <div><span>Base score</span><strong>{scoringAnalysis.base_score}</strong></div>
+                  <div><span>Final score</span><strong>{scoringAnalysis.score}/10</strong></div>
+                </div>
+
+                <div className="chip-group-block">
+                  <span>Applied modifiers</span>
+                  <ul className="chip-list chip-list-accent">
+                    {(appliedModifiers.length > 0 ? appliedModifiers : ['No modifiers applied']).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="justification-card">
+                  <span>Summary</span>
+                  <p>{justification.summary || 'No summary available.'}</p>
+
+                  <span>Reasoning</span>
+                  <p>{justification.reasoning || 'No reasoning available.'}</p>
+
+                  <span>Red flags to watch</span>
+                  <ul className="chip-list chip-list-neutral">
+                    {(redFlagsToWatch.length > 0 ? redFlagsToWatch : ['None provided']).map((item, index) => (
+                      <li key={index}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
 
                 {finalDecision.alternative_imaging && (
-                  <div className="alternative-imaging">
-                    <strong>Alternative imaging</strong>
-                    <span>{finalDecision.alternative_imaging}</span>
+                  <div className="alt-imaging-card">
+                    <span>Alternative imaging</span>
+                    <strong>{finalDecision.alternative_imaging}</strong>
                   </div>
                 )}
-              </div>
-
-              <div className="results-two-column">
-                <div className="result-section card-surface">
-                  <h3>Extracted clinical information</h3>
-                  <div className="result-grid">
-                    <div className="result-item"><strong>Age</strong>{extractedEntities.age || 'Not detected'}</div>
-                    <div className="result-item"><strong>Sex</strong>{extractedEntities.sex || 'Not detected'}</div>
-                    <div className="result-item"><strong>Duration</strong>{extractedEntities.duration || 'Not detected'}</div>
-                    <div className="result-item"><strong>Clinical category</strong>{extractedEntities.clinical_category}</div>
-                    <div className="result-item"><strong>Prior imaging</strong>{extractedEntities.prior_imaging ? 'Yes' : 'No'}</div>
-                    <div className="result-item"><strong>Category confidence</strong>{formatConfidence(confidenceValue)}</div>
-                  </div>
-
-                  {extractedEntities.symptoms.length > 0 && (
-                    <div className="result-block">
-                      <strong>Symptoms</strong>
-                      <ul className="tag-list">
-                        {extractedEntities.symptoms.map((symptom, index) => (
-                          <li key={index}>{symptom}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {extractedEntities.red_flags.length > 0 && (
-                    <div className="result-block">
-                      <strong>Red flags</strong>
-                      <ul className="tag-list tag-list-danger">
-                        {extractedEntities.red_flags.map((flag, index) => (
-                          <li key={index}>{flag}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                <div className="result-section card-surface">
-                  <h3>Scoring analysis</h3>
-                  <div className="result-grid result-grid-tight">
-                    <div className="result-item"><strong>Base score</strong>{scoringAnalysis.base_score}</div>
-                    <div className="result-item"><strong>Final score</strong>{scoringAnalysis.score}/10</div>
-                    <div className="result-item result-item-wide">
-                      <strong>Applied modifiers</strong>
-                      {scoringAnalysis.applied_modifiers.length > 0 ? scoringAnalysis.applied_modifiers.join(', ') : 'None'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="result-section justification-section">
-                <h3>AI justification</h3>
-                <div className="justification-box">
-                  <div className="justification-summary">
-                    <span>Summary</span>
-                    <p>{justification.summary}</p>
-                  </div>
-                  <div className="justification-summary">
-                    <span>Reasoning</span>
-                    <p>{justification.reasoning}</p>
-                  </div>
-
-                  {justification.red_flags_to_watch.length > 0 && (
-                    <div className="justification-summary">
-                      <span>Red flags to watch</span>
-                      <ul className="tag-list tag-list-neutral">
-                        {justification.red_flags_to_watch.map((flag, index) => (
-                          <li key={index}>{flag}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              </div>
+              </article>
             </div>
           </section>
         )}
